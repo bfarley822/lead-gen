@@ -50,6 +50,8 @@ export default function DashboardPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runFeedback, setRunFeedback] = useState<RunFeedback | null>(null);
   const [runningCities, setRunningCities] = useState<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<RunFeedback | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -131,6 +133,23 @@ export default function DashboardPage() {
     [selectedFranchise, runLoading, triggerRun]
   );
 
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    setSyncFeedback(null);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncFeedback({ message: "Database synced to Turso successfully", isError: false });
+      } else {
+        setSyncFeedback({ message: data.error ?? "Sync failed", isError: true });
+      }
+    } catch {
+      setSyncFeedback({ message: "Network error during sync", isError: true });
+    }
+    setSyncing(false);
+  }, []);
+
   const handleRerun = useCallback(
     async (city: string) => {
       setRunningCities((prev) => new Set(prev).add(city));
@@ -207,10 +226,36 @@ export default function DashboardPage() {
 
           {pipelineEnabled && (
             <div className="rounded-2xl bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-bold">Run Pipeline</h2>
-              <p className="mt-1 text-sm text-muted">
-                Select a franchise location to collect and score local events
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Run Pipeline</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Select a franchise location to collect and score local events
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {syncing ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Syncing...
+                      </span>
+                    ) : (
+                      "Sync to Turso"
+                    )}
+                  </button>
+                  {syncFeedback && (
+                    <span className={`text-xs font-medium ${syncFeedback.isError ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>
+                      {syncFeedback.isError ? "✕" : "✓"} {syncFeedback.message}
+                    </span>
+                  )}
+                </div>
+              </div>
 
               <form onSubmit={handleFormSubmit} className="mt-4 space-y-3">
                 <div className="flex gap-3 items-end">
