@@ -338,11 +338,12 @@ export default function DashboardPage() {
               </div>
             ) : (
               (() => {
-                const filtered = locationSearch.trim()
+                const filtered = (locationSearch.trim()
                   ? locations.filter((loc) =>
                       loc.city.toLowerCase().includes(locationSearch.toLowerCase())
                     )
-                  : locations;
+                  : locations
+                ).sort((a, b) => b.active_events - a.active_events);
                 return filtered.length === 0 ? (
                   <div className="rounded-2xl bg-card p-12 text-center text-muted shadow-sm">
                     No locations match &ldquo;{locationSearch}&rdquo;

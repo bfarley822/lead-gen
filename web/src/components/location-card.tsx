@@ -77,7 +77,6 @@ export function LocationCard({
                 />
               </button>
             )}
-            <StatusBadge status={location.status} />
           </div>
         </div>
 

@@ -103,6 +103,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   const total = row<{ count: number }>(
+    (await db.execute("SELECT COUNT(*) as count FROM canonical_events")).rows[0]
+  );
+
+  const active = row<{ count: number }>(
     (await db.execute("SELECT COUNT(*) as count FROM canonical_events WHERE status = 'active'")).rows[0]
   );
 
@@ -113,7 +117,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return {
     totalLocations: locationCount,
     totalEvents: total.count,
-    activeEvents: total.count,
+    activeEvents: active.count,
     highScoreEvents: highScore.count,
   };
 }
@@ -218,7 +222,7 @@ export async function getLocations(): Promise<LocationSummary[]> {
     });
   }
 
-  return [...results.values()];
+  return [...results.values()].filter((loc) => loc.active_events > 0);
 }
 
 async function findFranchiseForCity(
