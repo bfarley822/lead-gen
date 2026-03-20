@@ -6,14 +6,21 @@ import path from "node:path";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function fixUnistr(sql: string): string {
-  return sql.replace(/unistr\('((?:[^']|'')*?)'\)/g, (_, inner: string) => {
+function fixDump(sql: string): string {
+  let fixed = sql.replace(/unistr\('((?:[^']|'')*?)'\)/g, (_, inner: string) => {
     const decoded = inner.replace(
       /\\u([0-9a-fA-F]{4})/g,
       (__: string, hex: string) => String.fromCharCode(parseInt(hex, 16))
     );
     return `'${decoded}'`;
   });
+
+  fixed = fixed.replace(
+    /CREATE TABLE (\S+)/g,
+    (match, tableName: string) => `DROP TABLE IF EXISTS ${tableName};\n${match}`
+  );
+
+  return fixed;
 }
 
 export async function POST() {
@@ -35,7 +42,7 @@ export async function POST() {
     });
 
     const raw = readFileSync(dumpPath, "utf-8");
-    const fixed = fixUnistr(raw);
+    const fixed = fixDump(raw);
     writeFileSync(fixedPath, fixed);
 
     execSync(`turso db shell lead-gen < "${fixedPath}"`, {

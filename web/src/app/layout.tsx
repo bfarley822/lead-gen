@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lead Gen Dashboard",
-  description: "Franchise event pipeline monitoring dashboard",
+  title: "Offsite Event Discovery Bot",
+  description: "AI-powered event discovery for Crumbl Cookies franchises",
 };
 
 export default function RootLayout({
@@ -31,9 +32,17 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <header className="sticky top-0 z-10 bg-card shadow-sm">
           <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-6">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="text-xl font-bold tracking-tight text-accent">
-                Lead Gen
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/crumbl-logo.svg"
+                alt="Crumbl"
+                width={100}
+                height={20}
+                className="h-5 w-auto"
+                priority
+              />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                Offsite Event Discovery Bot
               </span>
             </Link>
             <nav className="flex gap-1">

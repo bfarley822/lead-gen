@@ -52,6 +52,7 @@ export default function DashboardPage() {
   const [runningCities, setRunningCities] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<RunFeedback | null>(null);
+  const [locationSearch, setLocationSearch] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -196,7 +197,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="mt-1.5 text-muted">
-          Franchise event pipeline overview
+          AI-powered offsite event discovery for franchise locations
         </p>
       </div>
 
@@ -319,22 +320,46 @@ export default function DashboardPage() {
           )}
 
           <div>
-            <h2 className="mb-5 text-xl font-bold">Franchise Locations</h2>
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold">Franchise Locations</h2>
+              {locations.length > 0 && (
+                <input
+                  type="text"
+                  placeholder="Search locations..."
+                  value={locationSearch}
+                  onChange={(e) => setLocationSearch(e.target.value)}
+                  className="rounded-xl border border-card-border bg-card px-4 py-2 text-sm outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent w-64"
+                />
+              )}
+            </div>
             {locations.length === 0 ? (
               <div className="rounded-2xl bg-card p-16 text-center text-muted shadow-sm">
                 No locations found. Run the pipeline to start collecting events.
               </div>
             ) : (
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {locations.map((loc) => (
-                  <LocationCard
-                    key={loc.city}
-                    location={loc}
-                    onRun={pipelineEnabled ? handleRerun : undefined}
-                    running={runningCities.has(loc.city)}
-                  />
-                ))}
-              </div>
+              (() => {
+                const filtered = locationSearch.trim()
+                  ? locations.filter((loc) =>
+                      loc.city.toLowerCase().includes(locationSearch.toLowerCase())
+                    )
+                  : locations;
+                return filtered.length === 0 ? (
+                  <div className="rounded-2xl bg-card p-12 text-center text-muted shadow-sm">
+                    No locations match &ldquo;{locationSearch}&rdquo;
+                  </div>
+                ) : (
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {filtered.map((loc) => (
+                      <LocationCard
+                        key={loc.city}
+                        location={loc}
+                        onRun={pipelineEnabled ? handleRerun : undefined}
+                        running={runningCities.has(loc.city)}
+                      />
+                    ))}
+                  </div>
+                );
+              })()
             )}
           </div>
         </>
