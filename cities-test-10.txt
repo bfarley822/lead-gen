@@ -1,0 +1,11 @@
+# 10-city test list — mix of small/medium US cities
+Spanish Fork, UT
+Provo, UT
+Logan, UT
+Boise, ID
+Fort Collins, CO
+Flagstaff, AZ
+Bend, OR
+Bozeman, MT
+Cedar Rapids, IA
+Fayetteville, AR
