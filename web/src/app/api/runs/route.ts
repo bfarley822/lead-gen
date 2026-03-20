@@ -15,6 +15,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.VERCEL) {
+    return NextResponse.json(
+      { error: "Pipeline execution is not available in the hosted environment. Run the CLI locally instead." },
+      { status: 501 }
+    );
+  }
+
   try {
     const body = await request.json();
 
