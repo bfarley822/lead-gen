@@ -1,4 +1,5 @@
 import { createClient, type Client, type Row } from "@libsql/client";
+import path from "node:path";
 
 export type CanonicalEvent = {
   id: number;
@@ -62,17 +63,24 @@ export type DashboardStats = {
 };
 
 function row<T>(r: Row): T {
-  return r as unknown as T;
+  return { ...r } as T;
 }
 
 let _client: Client | null = null;
 
 function getDb(): Client {
   if (_client) return _client;
-  _client = createClient({
-    url: process.env.TURSO_DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-  });
+
+  if (process.env.TURSO_DATABASE_URL) {
+    _client = createClient({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+  } else {
+    const dbPath = path.resolve(process.cwd(), "..", "data", "lead-gen.db");
+    _client = createClient({ url: `file:${dbPath}` });
+  }
+
   return _client;
 }
 
