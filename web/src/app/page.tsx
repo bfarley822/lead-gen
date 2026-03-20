@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [franchises, setFranchises] = useState<FranchiseOption[]>([]);
+  const [pipelineEnabled, setPipelineEnabled] = useState(false);
   const [selectedFranchise, setSelectedFranchise] =
     useState<FranchiseOption | null>(null);
   const [runLoading, setRunLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function DashboardPage() {
           setStats(data.stats);
           setLocations(data.locations);
           if (data.franchises) setFranchises(data.franchises);
+          if (data.pipelineEnabled != null) setPipelineEnabled(data.pipelineEnabled);
           setLoading(false);
         }
       } catch {
@@ -203,71 +205,73 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="rounded-2xl bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-bold">Run Pipeline</h2>
-            <p className="mt-1 text-sm text-muted">
-              Select a franchise location to collect and score local events
-            </p>
+          {pipelineEnabled && (
+            <div className="rounded-2xl bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-bold">Run Pipeline</h2>
+              <p className="mt-1 text-sm text-muted">
+                Select a franchise location to collect and score local events
+              </p>
 
-            <form onSubmit={handleFormSubmit} className="mt-4 space-y-3">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1 space-y-1">
-                  <label className="text-xs font-medium text-muted">
-                    Franchise location
-                  </label>
-                  <FranchisePicker
-                    franchises={franchises}
-                    selected={selectedFranchise}
-                    onSelect={(f) => {
-                      setSelectedFranchise(f);
-                      if (runFeedback) setRunFeedback(null);
-                    }}
-                    disabled={runLoading}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={runLoading || !selectedFranchise}
-                  className="rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  {runLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Starting...
-                    </span>
-                  ) : (
-                    "Run Pipeline"
-                  )}
-                </button>
-              </div>
-              {selectedFranchise && (
-                <p className="text-xs text-muted">
-                  {selectedFranchise.address}
-                </p>
-              )}
-            </form>
-
-            {runFeedback && (
-              <div
-                className={`mt-3 flex items-center gap-2 text-sm ${
-                  runFeedback.isError
-                    ? "text-red-500"
-                    : "text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                <span>{runFeedback.isError ? "✕" : "✓"}</span>
-                <span>{runFeedback.message}</span>
-                {!runFeedback.isError && (
-                  <Link
-                    href="/runs"
-                    className="font-bold text-accent hover:underline"
+              <form onSubmit={handleFormSubmit} className="mt-4 space-y-3">
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs font-medium text-muted">
+                      Franchise location
+                    </label>
+                    <FranchisePicker
+                      franchises={franchises}
+                      selected={selectedFranchise}
+                      onSelect={(f) => {
+                        setSelectedFranchise(f);
+                        if (runFeedback) setRunFeedback(null);
+                      }}
+                      disabled={runLoading}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={runLoading || !selectedFranchise}
+                    className="rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
-                    View runs →
-                  </Link>
+                    {runLoading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Starting...
+                      </span>
+                    ) : (
+                      "Run Pipeline"
+                    )}
+                  </button>
+                </div>
+                {selectedFranchise && (
+                  <p className="text-xs text-muted">
+                    {selectedFranchise.address}
+                  </p>
                 )}
-              </div>
-            )}
-          </div>
+              </form>
+
+              {runFeedback && (
+                <div
+                  className={`mt-3 flex items-center gap-2 text-sm ${
+                    runFeedback.isError
+                      ? "text-red-500"
+                      : "text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
+                  <span>{runFeedback.isError ? "✕" : "✓"}</span>
+                  <span>{runFeedback.message}</span>
+                  {!runFeedback.isError && (
+                    <Link
+                      href="/runs"
+                      className="font-bold text-accent hover:underline"
+                    >
+                      View runs →
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <h2 className="mb-5 text-xl font-bold">Franchise Locations</h2>
@@ -281,7 +285,7 @@ export default function DashboardPage() {
                   <LocationCard
                     key={loc.city}
                     location={loc}
-                    onRun={handleRerun}
+                    onRun={pipelineEnabled ? handleRerun : undefined}
                     running={runningCities.has(loc.city)}
                   />
                 ))}

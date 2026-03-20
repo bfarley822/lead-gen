@@ -9,5 +9,10 @@ export async function GET() {
     getLocations(),
     getFranchiseLocations(),
   ]);
-  return NextResponse.json({ stats, locations, franchises });
+  return NextResponse.json({
+    stats,
+    locations,
+    franchises,
+    pipelineEnabled: !process.env.VERCEL,
+  });
 }
