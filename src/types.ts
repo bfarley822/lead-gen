@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type SourceName = "searxng" | "rss";
+export type SourceName = "searxng" | "openai_search" | "rss";
 
 export type RawEvent = {
   title: string;
@@ -18,7 +18,7 @@ export const CollectedEventSchema = z.object({
   url: z.string(),
   date: z.string().nullable(),
   locationHint: z.string().nullable(),
-  source: z.enum(["searxng", "rss"]),
+  source: z.enum(["searxng", "openai_search", "rss"]),
   collectedBy: z.string(),
 });
 
@@ -31,7 +31,7 @@ export const QualifiedEventSchema = z.object({
   url: z.string(),
   date: z.string().nullable(),
   locationHint: z.string().nullable(),
-  source: z.enum(["searxng", "rss"]),
+  source: z.enum(["searxng", "openai_search", "rss"]),
   qualityScore: z.number(),
   keptBecause: z.array(z.string()),
   droppedBecause: z.array(z.string()),
@@ -82,6 +82,25 @@ export type AgentConfig = {
   openaiResearchModel: string;
   openaiScoringModel: string;
   searxngBaseUrl: string;
+  /** BCP 47 / SearXNG language filter (e.g. en) — cuts non-English marketplace spam */
+  searxngLanguage: string;
+  /** SearXNG time_range: day | week | month | year — empty to omit */
+  searxngTimeRange: string;
+  /** SearXNG categories (e.g. general, news) */
+  searxngCategories: string;
+  /** Comma-separated engine names; empty uses instance defaults */
+  searxngEngines: string;
+  /**
+   * auto: use OpenAI web search when llmProvider is openai, else SearXNG.
+   * openai | searxng: force that backend (OpenAI path needs OPENAI_API_KEY).
+   */
+  collectorSearchProvider: string;
+  /** Model for Responses API + built-in web_search tool */
+  openaiResponsesSearchModel: string;
+  openaiWebSearchContextSize: "low" | "medium" | "high";
+  openaiCollectorConcurrency: number;
+  openaiCollectorBatchDelayMs: number;
+  openaiCollectorTimeoutMs: number;
   searchLocation: string;
   searchArea: string;
   storeAddress: string;

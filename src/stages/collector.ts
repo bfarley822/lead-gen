@@ -1,5 +1,6 @@
-import type { AgentConfig, CollectedEvent } from "../types.js";
+import type { AgentConfig, CollectedEvent, SourceName } from "../types.js";
 import { searchFeeds } from "../sources/rss.js";
+import { queryOpenAiWebCollection } from "./openai-collector-search.js";
 
 type SearXNGResult = {
   title: string;
@@ -12,8 +13,36 @@ type SearXNGResponse = {
   results: SearXNGResult[];
 };
 
+type WebHitInput = {
+  title: string;
+  url: string;
+  content: string;
+  publishedDate?: string;
+};
+
 function toId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 48);
+}
+
+/**
+ * Web search engines heavily match the token "new" on queries like "New York, NY …",
+ * which pulls in Stack Overflow (`new` operator), "new branch" tutorials, etc.
+ * Use a dense metro label for NYC (and trim sloppy franchise DB spacing).
+ */
+export function normalizeCityStateForSearchQueries(cityState: string) {
+  const trimmed = cityState.trim();
+  const parts = trimmed.split(",").map((p) => p.trim());
+  if (parts.length < 2) return trimmed;
+
+  const city = parts[0].replace(/\s+/g, " ").trim();
+  const stateToken = parts[1].split(/\s+/)[0]?.toLowerCase() ?? "";
+  const cityLower = city.toLowerCase();
+
+  if ((cityLower === "new york" || cityLower === "new york city") && stateToken === "ny") {
+    return "NYC NY";
+  }
+
+  return `${city}, ${stateToken.toUpperCase()}`;
 }
 
 function normalizeKey(title: string, url: string) {
@@ -26,13 +55,45 @@ function normalizeKey(title: string, url: string) {
   }
 }
 
+const JUNK_SITE_EXCLUSIONS = [
+  "stackoverflow.com",
+  "stackexchange.com",
+  "github.com",
+  "faire.com",
+  "coursera.org",
+  "wikipedia.org",
+  "britannica.com",
+  "tripadvisor.com",
+  "yelp.com",
+  "dictionary.cambridge.org",
+  "merriam-webster.com",
+  "desmos.com",
+  "calculator.com",
+  "medium.com",
+  "reddit.com",
+];
+
+function junkSiteExclusionClause() {
+  return JUNK_SITE_EXCLUSIONS.map((d) => `-site:${d}`).join(" ");
+}
+
+/** Appends -site: filters (Google/Bing/DDG) so raw SERPs are less polluted before LLM stages. */
+export function applySearchQueryHygiene(query: string) {
+  return `${query.trim()} ${junkSiteExclusionClause()}`.trim();
+}
+
+function yearPair() {
+  const y = new Date().getUTCFullYear();
+  return [y, y + 1];
+}
+
 function buildQueriesForCity(city: string, keywords: string[]) {
+  const years = yearPair();
   const baseQueries = keywords.flatMap((keyword) => [
     `${keyword} ${city}`,
     `${keyword} ${city} events`,
-    `${keyword} ${city} upcoming`,
-    `${keyword} ${city} registration`,
-    `${keyword} ${city} application`,
+    `${keyword} ${city} tickets`,
+    ...years.map((yr) => `${keyword} ${city} ${yr}`),
   ]);
   const communityQueries = [
     `${city} fairgrounds events`,
@@ -79,6 +140,8 @@ function buildQueriesForCity(city: string, keywords: string[]) {
     `popup booth registration ${city}`,
     `food truck festival ${city}`,
     `sweet treats vendor ${city}`,
+    `inurl:/events/ ${city}`,
+    `inurl:eventbrite.com/e ${city}`,
   ];
   return [...baseQueries, ...communityQueries];
 }
@@ -99,13 +162,26 @@ function buildNearbyCityQueries(city: string) {
   ];
 }
 
-function buildCollectorQueries(config: AgentConfig, nearbyCities: string[] = []) {
-  const primaryCity = config.searchArea;
+function buildCollectorQueryStrings(config: AgentConfig, nearbyCities: string[] = []) {
+  const primaryCity = normalizeCityStateForSearchQueries(config.searchArea);
   const primaryQueries = buildQueriesForCity(primaryCity, config.searchKeywords);
 
-  const nearbyQueries = nearbyCities.flatMap((city) => buildNearbyCityQueries(city));
+  const nearbyQueries = nearbyCities.flatMap((city) =>
+    buildNearbyCityQueries(normalizeCityStateForSearchQueries(city))
+  );
 
   return [...new Set([...primaryQueries, ...nearbyQueries])];
+}
+
+function buildSearxngQueries(config: AgentConfig, nearbyCities: string[] = []) {
+  return buildCollectorQueryStrings(config, nearbyCities).map(applySearchQueryHygiene);
+}
+
+export function resolveCollectorSearchProvider(config: AgentConfig): "searxng" | "openai" {
+  const mode = config.collectorSearchProvider.trim().toLowerCase();
+  if (mode === "openai") return "openai";
+  if (mode === "searxng") return "searxng";
+  return config.llmProvider === "openai" ? "openai" : "searxng";
 }
 
 const SEARXNG_QUERY_DELAY_MS = 200;
@@ -115,12 +191,32 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function querySearXNG(baseUrl: string, query: string, retryCount = 0): Promise<SearXNGResult[]> {
+async function querySearXNG(
+  baseUrl: string,
+  query: string,
+  config: AgentConfig,
+  retryCount = 0
+): Promise<SearXNGResult[]> {
   const url = new URL("/search", baseUrl);
   url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
-  url.searchParams.set("categories", "general");
+  url.searchParams.set("categories", config.searxngCategories.trim() || "general");
   url.searchParams.set("pageno", "1");
+  if (config.searxngLanguage.trim()) {
+    url.searchParams.set("language", config.searxngLanguage.trim());
+  }
+  const tr = config.searxngTimeRange.trim().toLowerCase();
+  if (tr && tr !== "none" && tr !== "off") {
+    url.searchParams.set("time_range", tr);
+  }
+  const engines = config.searxngEngines
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(",");
+  if (engines) {
+    url.searchParams.set("engines", engines);
+  }
 
   if (retryCount > 0) {
     await sleep(SEARXNG_QUERY_DELAY_MS * 2 ** retryCount);
@@ -130,7 +226,7 @@ async function querySearXNG(baseUrl: string, query: string, retryCount = 0): Pro
 
   if (response.status === 429 || response.status === 503) {
     if (retryCount < SEARXNG_MAX_RETRIES) {
-      return querySearXNG(baseUrl, query, retryCount + 1);
+      return querySearXNG(baseUrl, query, config, retryCount + 1);
     }
     return [];
   }
@@ -143,44 +239,94 @@ async function querySearXNG(baseUrl: string, query: string, retryCount = 0): Pro
   return data.results ?? [];
 }
 
-function mapSearxngResult(
-  item: SearXNGResult,
+function mapWebSearchResult(
+  item: WebHitInput,
   city: string,
-  query: string
+  query: string,
+  source: Extract<SourceName, "searxng" | "openai_search">
 ): CollectedEvent {
+  const idPrefix = source === "openai_search" ? "openai" : "searxng";
   return {
-    id: `searxng-${toId(item.url || item.title)}`,
+    id: `${idPrefix}-${toId(item.url || item.title)}`,
     title: item.title,
     description: item.content ?? "",
     url: item.url,
     date: item.publishedDate ?? null,
     locationHint: city,
-    source: "searxng",
+    source,
     collectedBy: query,
   };
 }
 
 export async function collectRawEvents(config: AgentConfig, nearbyCities: string[] = []) {
   const log = config.onLog ?? console.log;
-  const queries = buildCollectorQueries(config, nearbyCities);
-  log(`  Sending ${queries.length} search queries in batches of 10...`);
+  const provider = resolveCollectorSearchProvider(config);
 
-  const BATCH_SIZE = 10;
   const searchResults: PromiseSettledResult<CollectedEvent[]>[] = [];
-  for (let i = 0; i < queries.length; i += BATCH_SIZE) {
-    const batch = queries.slice(i, i + BATCH_SIZE);
-    const queryBatchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const totalQueryBatches = Math.ceil(queries.length / BATCH_SIZE);
-    log(`  Search batch ${queryBatchNum}/${totalQueryBatches} (${batch.length} queries)...`);
-    const batchResults = await Promise.allSettled(
-      batch.map(async (query) => {
-        const results = await querySearXNG(config.searxngBaseUrl, query);
-        return results.map((item) => mapSearxngResult(item, config.searchArea, query));
-      })
+
+  if (provider === "openai") {
+    if (!config.openaiApiKey.trim()) {
+      throw new Error(
+        "Collector is set to use OpenAI web search (COLLECTOR_SEARCH_PROVIDER or LLM_PROVIDER=openai) but OPENAI_API_KEY is missing"
+      );
+    }
+    const queries = buildCollectorQueryStrings(config, nearbyCities);
+    const batchSize = Math.max(1, Math.min(10, config.openaiCollectorConcurrency));
+    log(
+      `  OpenAI web search: ${queries.length} queries (${batchSize} concurrent, model ${config.openaiResponsesSearchModel})...`
     );
-    searchResults.push(...batchResults);
-    if (i + BATCH_SIZE < queries.length) {
-      await sleep(SEARXNG_QUERY_DELAY_MS);
+    for (let i = 0; i < queries.length; i += batchSize) {
+      const batch = queries.slice(i, i + batchSize);
+      const queryBatchNum = Math.floor(i / batchSize) + 1;
+      const totalQueryBatches = Math.ceil(queries.length / batchSize);
+      log(`  OpenAI search batch ${queryBatchNum}/${totalQueryBatches} (${batch.length} queries)...`);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (query) => {
+          try {
+            const hits = await queryOpenAiWebCollection(config, query);
+            return hits.map((item) =>
+              mapWebSearchResult(
+                {
+                  title: item.title,
+                  url: item.url,
+                  content: item.content,
+                },
+                config.searchArea,
+                query,
+                "openai_search"
+              )
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            log(`  OpenAI search failed for "${query.slice(0, 72)}…": ${msg}`);
+            return [];
+          }
+        })
+      );
+      searchResults.push(...batchResults);
+      if (i + batchSize < queries.length) {
+        await sleep(config.openaiCollectorBatchDelayMs);
+      }
+    }
+  } else {
+    const queries = buildSearxngQueries(config, nearbyCities);
+    log(`  SearXNG: ${queries.length} search queries in batches of 10...`);
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < queries.length; i += BATCH_SIZE) {
+      const batch = queries.slice(i, i + BATCH_SIZE);
+      const queryBatchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalQueryBatches = Math.ceil(queries.length / BATCH_SIZE);
+      log(`  Search batch ${queryBatchNum}/${totalQueryBatches} (${batch.length} queries)...`);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (query) => {
+          const results = await querySearXNG(config.searxngBaseUrl, query, config);
+          return results.map((item) => mapWebSearchResult(item, config.searchArea, query, "searxng"));
+        })
+      );
+      searchResults.push(...batchResults);
+      if (i + BATCH_SIZE < queries.length) {
+        await sleep(SEARXNG_QUERY_DELAY_MS);
+      }
     }
   }
 

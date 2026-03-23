@@ -31,6 +31,12 @@ function delimitedEnv(key: string, fallback: string, delimiter: string): string[
     .filter(Boolean);
 }
 
+function webSearchContextSize(): "low" | "medium" | "high" {
+  const v = optionalEnv("OPENAI_WEB_SEARCH_CONTEXT_SIZE", "medium").toLowerCase();
+  if (v === "low" || v === "high") return v;
+  return "medium";
+}
+
 export function loadConfig(overrides?: Partial<AgentConfig>): AgentConfig {
   const llmProvider = optionalEnv("LLM_PROVIDER", "ollama");
   const ollamaModel = optionalEnv("OLLAMA_MODEL", "llama3.1:8b");
@@ -53,6 +59,16 @@ export function loadConfig(overrides?: Partial<AgentConfig>): AgentConfig {
     openaiResearchModel: optionalEnv("OPENAI_RESEARCH_MODEL", openaiModel),
     openaiScoringModel: optionalEnv("OPENAI_SCORING_MODEL", openaiModel),
     searxngBaseUrl: optionalEnv("SEARXNG_BASE_URL", "http://localhost:8888"),
+    searxngLanguage: optionalEnv("SEARXNG_LANGUAGE", "en"),
+    searxngTimeRange: optionalEnv("SEARXNG_TIME_RANGE", "year"),
+    searxngCategories: optionalEnv("SEARXNG_CATEGORIES", "general"),
+    searxngEngines: optionalEnv("SEARXNG_ENGINES", ""),
+    collectorSearchProvider: optionalEnv("COLLECTOR_SEARCH_PROVIDER", "auto"),
+    openaiResponsesSearchModel: optionalEnv("OPENAI_RESPONSES_SEARCH_MODEL", "gpt-4o-mini"),
+    openaiWebSearchContextSize: webSearchContextSize(),
+    openaiCollectorConcurrency: Number(optionalEnv("OPENAI_COLLECTOR_CONCURRENCY", "4")),
+    openaiCollectorBatchDelayMs: Number(optionalEnv("OPENAI_COLLECTOR_BATCH_DELAY_MS", "600")),
+    openaiCollectorTimeoutMs: Number(optionalEnv("OPENAI_COLLECTOR_TIMEOUT_MS", "120000")),
     searchLocation: optionalEnv("SEARCH_LOCATION", "Austin, TX"),
     searchArea: optionalEnv("SEARCH_LOCATION", "Austin, TX"),
     storeAddress: optionalEnv("STORE_ADDRESS", ""),
@@ -61,7 +77,7 @@ export function loadConfig(overrides?: Partial<AgentConfig>): AgentConfig {
     cityConcurrency: Number(optionalEnv("CITY_CONCURRENCY", "4")),
     searchRadiusMiles: Number(optionalEnv("SEARCH_RADIUS_MILES", "25")),
     assignmentRadiusMiles: Number(optionalEnv("ASSIGNMENT_RADIUS_MILES", "10")),
-    broadSearchRadiusMiles: Number(optionalEnv("BROAD_SEARCH_RADIUS_MILES", "30")),
+    broadSearchRadiusMiles: Number(optionalEnv("BROAD_SEARCH_RADIUS_MILES", "10")),
     searchKeywords: csvEnv(
       "SEARCH_KEYWORDS",
       "farmers market, food festival, craft fair, holiday market, community event, bake sale"

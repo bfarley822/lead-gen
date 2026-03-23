@@ -30,7 +30,7 @@ import {
   type CanonicalEventRow,
   type FranchiseLocationRow,
 } from "./db.js";
-import { collectRawEvents } from "./stages/collector.js";
+import { collectRawEvents, resolveCollectorSearchProvider } from "./stages/collector.js";
 import { hardRejectFilter } from "./stages/qualifier.js";
 import { deduplicateEvents } from "./stages/deduplicator.js";
 import { triageGroups } from "./stages/triage.js";
@@ -551,7 +551,7 @@ export async function runIncrementalPipeline(config: AgentConfig) {
     }
 
     // Stage 1: Collect
-    log("Stage 1: Collecting raw events...");
+    log(`Stage 1: Collecting raw events (${resolveCollectorSearchProvider(config)})...`);
     const collected = await collectRawEvents(config, nearbyCityNames);
     log(`  Collected: ${collected.rawCount} raw, ${collected.dedupedCount} deduped`);
 

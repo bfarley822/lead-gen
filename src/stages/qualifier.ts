@@ -158,6 +158,11 @@ const hardRejectUrlSubstrings = [
   "opencorporates.com",
   "sos.ca.gov",
   "imdb.com",
+  "stackoverflow.com",
+  "stackexchange.com",
+  "github.com",
+  "calculator.com",
+  "desmos.com",
 
   // Meetup generic pages (specific event URLs like /group-name/events/123 are fine)
   "meetup.com/login",

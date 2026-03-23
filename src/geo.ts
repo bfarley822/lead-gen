@@ -125,7 +125,7 @@ export function getNearbyCities(
     const existing = cityMap.get(key);
     if (!existing || dist < existing.distanceMiles) {
       cityMap.set(key, {
-        city: f.city,
+        city: f.city.trim(),
         stateInitials: f.state_initials,
         distanceMiles: Math.round(dist * 10) / 10,
       });
