@@ -68,6 +68,14 @@ function row<T>(r: Row): T {
 
 let _client: Client | null = null;
 
+function bundledSqlitePath(): string {
+  const override = process.env.BUNDLED_DB_PATH?.trim();
+  if (override) {
+    return path.isAbsolute(override) ? override : path.resolve(process.cwd(), override);
+  }
+  return path.join(process.cwd(), "data", "lead-gen.db");
+}
+
 function getDb(): Client {
   if (_client) return _client;
 
@@ -77,7 +85,7 @@ function getDb(): Client {
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
   } else {
-    const dbPath = path.resolve(process.cwd(), "..", "data", "lead-gen.db");
+    const dbPath = bundledSqlitePath();
     _client = createClient({ url: `file:${dbPath}` });
   }
 

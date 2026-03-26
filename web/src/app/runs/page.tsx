@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import { runsListPollMs } from "@/lib/poll-interval";
 
 type RunSummary = {
   id: number;
@@ -57,7 +58,7 @@ export default function RunsPage() {
 
     fetchRuns();
 
-    const interval = setInterval(fetchRuns, 3000);
+    const interval = setInterval(fetchRuns, runsListPollMs());
     return () => {
       mounted = false;
       clearInterval(interval);

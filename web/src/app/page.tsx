@@ -7,6 +7,7 @@ import {
   FranchisePicker,
   type FranchiseOption,
 } from "@/components/franchise-picker";
+import { dashboardPollMs } from "@/lib/poll-interval";
 
 type DashboardStats = {
   totalLocations: number;
@@ -75,7 +76,7 @@ export default function DashboardPage() {
 
     fetchData();
 
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, dashboardPollMs());
     return () => {
       mounted = false;
       clearInterval(interval);

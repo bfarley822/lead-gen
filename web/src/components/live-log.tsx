@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { liveLogPollMs } from "@/lib/poll-interval";
 
 type RunData = {
   id: number;
@@ -52,7 +53,7 @@ export function LiveLog({ runId, initial }: { runId: number; initial: RunData })
       } catch {
         /* ignore fetch errors */
       }
-    }, 1500);
+    }, liveLogPollMs());
 
     return () => clearInterval(interval);
   }, [runId, isActive]);

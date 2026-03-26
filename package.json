@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "copy-db-web": "npm run copy-db --prefix web"
   },
   "bin": {
     "lead-gen": "dist/index.js"

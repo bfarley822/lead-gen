@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "copy-db": "node scripts/copy-db.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",

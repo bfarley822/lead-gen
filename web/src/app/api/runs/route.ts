@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import {
@@ -7,10 +8,23 @@ import {
   getFranchiseByStoreName,
 } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+function runsListCacheSeconds() {
+  const raw = process.env.RUNS_LIST_CACHE_SECONDS;
+  if (raw !== undefined && raw !== "") {
+    const n = Number(raw);
+    if (!Number.isNaN(n) && n >= 0) return n;
+  }
+  return 15;
+}
+
+const loadRecentRuns = unstable_cache(
+  async () => getRecentRuns(),
+  ["pipeline-runs-recent"],
+  { revalidate: runsListCacheSeconds() }
+);
 
 export async function GET() {
-  const runs = await getRecentRuns();
+  const runs = await loadRecentRuns();
   return NextResponse.json(runs);
 }
 
