@@ -1,5 +1,6 @@
 import { createClient, type Client, type Row } from "@libsql/client";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 export type CanonicalEvent = {
   id: number;
@@ -76,6 +77,11 @@ function bundledSqlitePath(): string {
   return path.join(process.cwd(), "data", "lead-gen.db");
 }
 
+/** libsql expects a file: URL; pathToFileURL handles spaces and Windows paths. */
+function bundledSqliteLibsqlUrl(dbPath: string) {
+  return pathToFileURL(dbPath).href;
+}
+
 function getDb(): Client {
   if (_client) return _client;
 
@@ -86,7 +92,7 @@ function getDb(): Client {
     });
   } else {
     const dbPath = bundledSqlitePath();
-    _client = createClient({ url: `file:${dbPath}` });
+    _client = createClient({ url: bundledSqliteLibsqlUrl(dbPath) });
   }
 
   return _client;

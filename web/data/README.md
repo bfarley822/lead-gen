@@ -10,7 +10,7 @@ From the repo root:
 cd web && npm run copy-db
 ```
 
-Or manually copy `../data/lead-gen.db` to `web/data/lead-gen.db`.
+The script copies `../data/lead-gen.db` here and runs `sqlite3` to set `journal_mode=DELETE` and checkpoint WAL so the file works on Vercel’s **read-only** filesystem (WAL mode otherwise tries to write `-wal`/`-shm` next to the file and can 500).
 
 Then commit `web/data/lead-gen.db` and redeploy. The database is read-only at runtime on Vercel (serverless cannot persist writes).
 
